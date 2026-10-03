@@ -1,11 +1,17 @@
 import { Line, LineChart, ResponsiveContainer, YAxis } from 'recharts'
-import type { Kpi, Status } from '../api'
-import { STATUS_LABEL } from '../format'
+import type { Kpi, Status, SustainmentState } from '../api'
+import { STATUS_LABEL, SUSTAIN_LABEL, SUSTAIN_TONE } from '../format'
 
 const ICON: Record<Status, string> = { OnTrack: '●', AtRisk: '▲', OffTrack: '■', NoData: '○' }
 
 export function StatusBadge({ status }: { status: Status }) {
   return <span className={`badge s-${status}`}><span aria-hidden>{ICON[status]}</span> {STATUS_LABEL[status]}</span>
+}
+
+const S_ICON: Record<SustainmentState, string> = { Pending: '○', Monitoring: '◔', Sustained: '✔', Slipping: '▲', Relapsed: '■' }
+
+export function SustainBadge({ state }: { state: SustainmentState }) {
+  return <span className={`badge s-${SUSTAIN_TONE[state]}`}><span aria-hidden>{S_ICON[state]}</span> {SUSTAIN_LABEL[state]}</span>
 }
 
 export function Spark({ kpi }: { kpi: Kpi }) {

@@ -1,4 +1,4 @@
-import type { Kpi, Status } from './api'
+import type { Kpi, Status, SustainmentState } from './api'
 
 export function fmtValue(v: number | undefined | null, unit: string): string {
   if (v === undefined || v === null) return '—'
@@ -25,3 +25,11 @@ export function trendText(k: Kpi): string {
 }
 
 export const today = () => new Date().toISOString().slice(0, 10)
+
+export const SUSTAIN_LABEL: Record<SustainmentState, string> = {
+  Pending: 'Pending', Monitoring: 'Monitoring', Sustained: 'Sustained', Slipping: 'Slipping', Relapsed: 'Relapsed',
+}
+/** Which existing status colour family each sustainment state borrows. */
+export const SUSTAIN_TONE: Record<SustainmentState, string> = {
+  Pending: 'NoData', Monitoring: 'Info', Sustained: 'OnTrack', Slipping: 'AtRisk', Relapsed: 'OffTrack',
+}

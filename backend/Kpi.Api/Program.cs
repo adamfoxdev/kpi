@@ -19,6 +19,15 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<KpiDbContext>();
     db.Database.EnsureCreated();
+    // EnsureCreated won't add tables to a database made by an earlier version; keep existing local DBs working.
+    db.Database.ExecuteSqlRaw("""
+        CREATE TABLE IF NOT EXISTS "SustainmentPlans" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_SustainmentPlans" PRIMARY KEY AUTOINCREMENT,
+            "KpiId" INTEGER NOT NULL, "GoLiveDate" TEXT NOT NULL, "BaselineValue" TEXT NOT NULL,
+            "MonitoringMonths" INTEGER NOT NULL, "Owner" TEXT NULL, "ControlPlan" TEXT NULL,
+            CONSTRAINT "FK_SustainmentPlans_Kpis_KpiId" FOREIGN KEY ("KpiId") REFERENCES "Kpis" ("Id") ON DELETE CASCADE);
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_SustainmentPlans_KpiId" ON "SustainmentPlans" ("KpiId");
+        """);
     if (app.Configuration.GetValue("SeedDemoData", true)) Seeder.Seed(db);
 }
 
@@ -127,6 +136,29 @@ api.MapDelete("/kpis/{id:int}/entries/{entryId:int}", async (int id, int entryId
     var e = await db.Entries.FirstOrDefaultAsync(x => x.Id == entryId && x.KpiId == id);
     if (e is null) return Results.NotFound();
     db.Entries.Remove(e); await db.SaveChangesAsync();
+    return Results.Ok(await q.DetailAsync(id));
+});
+
+// ---- Sustainment (one control plan per KPI)
+api.MapGet("/sustainment", (KpiQueries q, CancellationToken ct) => q.SustainmentAsync(ct));
+
+api.MapPut("/kpis/{id:int}/sustainment", async (int id, SustainmentInput i, KpiDbContext db, KpiQueries q) =>
+{
+    if (!await db.Kpis.AnyAsync(k => k.Id == id)) return Results.NotFound();
+    if (i.MonitoringMonths is < 1 or > 36) return Invalid("Monitoring period must be 1-36 months.");
+    var p = await db.SustainmentPlans.FirstOrDefaultAsync(x => x.KpiId == id);
+    if (p is null) db.SustainmentPlans.Add(p = new SustainmentPlan { KpiId = id });
+    p.GoLiveDate = i.GoLiveDate; p.BaselineValue = i.BaselineValue; p.MonitoringMonths = i.MonitoringMonths;
+    p.Owner = i.Owner; p.ControlPlan = i.ControlPlan;
+    await db.SaveChangesAsync();
+    return Results.Ok(await q.DetailAsync(id));
+});
+
+api.MapDelete("/kpis/{id:int}/sustainment", async (int id, KpiDbContext db, KpiQueries q) =>
+{
+    var p = await db.SustainmentPlans.FirstOrDefaultAsync(x => x.KpiId == id);
+    if (p is null) return Results.NotFound();
+    db.SustainmentPlans.Remove(p); await db.SaveChangesAsync();
     return Results.Ok(await q.DetailAsync(id));
 });
 

@@ -37,6 +37,9 @@ export default function Dashboard() {
         {tile('Off track', data.offTrack, 's-OffTrack', 'OffTrack')}
         {tile('No data', data.noData, 's-NoData', 'NoData')}
         {tile('Stale (overdue)', data.stale, 'stale')}
+        <Link to="/sustainment" className={`tile ${data.gainsAtRisk > 0 ? 'warn' : ''}`}>
+          <span className="tile-v">{data.gainsAtRisk}</span><span className="tile-l">Gains slipping / lost →</span>
+        </Link>
       </div>
 
       <section className="panel">

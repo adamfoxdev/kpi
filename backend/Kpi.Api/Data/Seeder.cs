@@ -7,7 +7,34 @@ public static class Seeder
 {
     public static void Seed(KpiDbContext db)
     {
-        if (db.Departments.Any()) return;
+        if (!db.Departments.Any()) SeedCore(db);
+        SeedSustainment(db);
+    }
+
+    /// <summary>Control plans for a handful of improved KPIs, chosen to show every sustainment state.</summary>
+    static void SeedSustainment(KpiDbContext db)
+    {
+        if (db.SustainmentPlans.Any()) return;
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var first = new DateOnly(today.Year, today.Month, 1);
+        var byName = db.Kpis.AsEnumerable().GroupBy(k => k.Name).ToDictionary(g => g.Key, g => g.Min(k => k.Id));
+        void Plan(string kpi, int goLiveMonthsAgo, decimal baseline, int months, string owner, string notes)
+        {
+            if (!byName.TryGetValue(kpi, out var id)) return;
+            db.SustainmentPlans.Add(new SustainmentPlan { KpiId = id, GoLiveDate = first.AddMonths(-goLiveMonthsAgo),
+                BaselineValue = baseline, MonitoringMonths = months, Owner = owner, ControlPlan = notes });
+        }
+        Plan("Operating Expenses", 6, 330000, 3, "L. Moreau", "Budget-owner sign-off above $5k; monthly variance review.");
+        Plan("Time to Hire", 2, 44, 3, "K. Novak", "Weekly req review; escalate any req open >30 days.");
+        Plan("Sales Cycle Length", 4, 58, 6, "R. Patel", "Stage-gate checklist in CRM; monthly pipeline-velocity review.");
+        Plan("Days Sales Outstanding", 3, 52, 6, "J. Okafor", "Automated dunning at 30/45/60 days; AR review every Friday.");
+        Plan("Defect Rate", 2, 8, 3, "S. Ito", "SPC chart at line 3; stop-the-line rule at 2 consecutive points above 6.");
+        Plan("On-Time Delivery", 2, 88, 4, "S. Ito", "Daily dispatch huddle; carrier scorecard reviewed monthly.");
+        db.SaveChanges();
+    }
+
+    static void SeedCore(KpiDbContext db)
+    {
         var rng = new Random(42);
         var today = DateOnly.FromDateTime(DateTime.Today);
         var firstOfMonth = new DateOnly(today.Year, today.Month, 1);

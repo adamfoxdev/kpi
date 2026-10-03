@@ -4,6 +4,7 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { api, type KpiDetail as Detail } from '../api'
 import { ErrorBox, Progress, StatusBadge } from '../components/Bits'
 import { KpiForm } from '../components/KpiForm'
+import { SustainmentPanel } from '../components/SustainmentPanel'
 import { fmtPct, fmtValue, today, trendText } from '../format'
 
 export default function KpiDetail() {
@@ -22,8 +23,11 @@ export default function KpiDetail() {
   if (error && !d) return <ErrorBox error={error} />
   if (!d) return <p className="muted">Loading…</p>
   const { kpi: k, entries } = d
-  const vals = k.spark.map(p => p.value).concat(k.target)
+  const plan = d.sustainment
+  const vals = k.spark.map(p => p.value).concat(k.target, plan ? [plan.baselineValue] : [])
   const span = Math.max(...vals) - Math.min(...vals) || Math.abs(k.target) || 1
+  // Category axis: pin the go-live marker to the first reading on/after go-live.
+  const goLiveX = plan ? k.spark.find(p => p.date >= plan.goLiveDate)?.date : undefined
   const pad = (v: number, dir: 1 | -1) => v + dir * span * 0.12
 
   async function add(e: React.FormEvent) {
@@ -68,15 +72,19 @@ export default function KpiDetail() {
               <LineChart data={k.spark} margin={{ top: 8, right: 24, bottom: 0, left: 8 }}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                 <XAxis dataKey="date" stroke="var(--muted)" fontSize={12} />
-                <YAxis stroke="var(--muted)" fontSize={12} width={72} domain={[(min: number) => pad(Math.min(min, k.target), -1), (max: number) => pad(Math.max(max, k.target), 1)]} tickFormatter={v => fmtValue(v, k.unit)} />
+                <YAxis stroke="var(--muted)" fontSize={12} width={72} domain={[pad(Math.min(...vals), -1), pad(Math.max(...vals), 1)]} tickFormatter={v => fmtValue(v, k.unit)} />
                 <Tooltip formatter={(v) => fmtValue(Number(v), k.unit)} contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)' }} />
                 <ReferenceLine y={k.target} stroke="var(--c-OnTrack)" strokeDasharray="6 4" label={{ value: 'Target', fill: 'var(--muted)', fontSize: 12, position: 'insideBottomRight' }} />
+                {plan && <ReferenceLine y={plan.baselineValue} stroke="var(--muted)" strokeDasharray="2 4" label={{ value: 'Baseline', fill: 'var(--muted)', fontSize: 12, position: 'insideTopRight' }} />}
+                {goLiveX && <ReferenceLine x={goLiveX} stroke="var(--c-Info)" label={{ value: 'Go-live', fill: 'var(--c-Info)', fontSize: 12, position: 'insideTopLeft' }} />}
                 <Line type="monotone" dataKey="value" name={k.name} stroke="var(--accent)" strokeWidth={2.5} dot={{ r: 3 }} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         )}
       </section>
+
+      <SustainmentPanel kpi={k} plan={plan} onChange={setD} />
 
       <section className="panel">
         <h2>Record a reading</h2>
