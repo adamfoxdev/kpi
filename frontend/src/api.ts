@@ -11,14 +11,25 @@ export interface Kpi {
   delta?: number; improving?: boolean | null; isStale: boolean; spark: Point[]
 }
 export interface Entry { id: number; date: string; value: number; note?: string }
-export interface KpiDetail { kpi: Kpi; entries: Entry[] }
+export type SustainmentState = 'Pending' | 'Monitoring' | 'Sustained' | 'Slipping' | 'Relapsed'
+export interface Sustainment {
+  kpiId: number; kpiName: string; departmentName: string; unit: string; direction: Direction
+  target: number; latestValue?: number; baselineValue: number; goLiveDate: string; monitoringEnds: string
+  monitoringMonths: number; owner?: string; controlPlan?: string; state: SustainmentState
+  readingsSince: number; onTarget: number; streak: number; gainRetained?: number
+  daysRemaining: number; percentElapsed: number; isStale: boolean
+}
+export interface SustainmentInput {
+  goLiveDate: string; baselineValue: number; monitoringMonths: number; owner?: string; controlPlan?: string
+}
+export interface KpiDetail { kpi: Kpi; entries: Entry[]; sustainment?: Sustainment | null }
 export interface Department { id: number; name: string; description?: string; kpiCount: number }
 export interface DeptHealth {
   id: number; name: string; total: number; onTrack: number; atRisk: number; offTrack: number
   noData: number; avgAttainment?: number
 }
 export interface Dashboard {
-  total: number; onTrack: number; atRisk: number; offTrack: number; noData: number; stale: number
+  total: number; onTrack: number; atRisk: number; offTrack: number; noData: number; stale: number; gainsAtRisk: number
   overallAttainment?: number; departments: DeptHealth[]; kpis: Kpi[]
 }
 export interface KpiInput {
@@ -54,6 +65,9 @@ export const api = {
     call<KpiDetail>('POST', `/api/kpis/${id}/entries`, e),
   deleteEntry: (id: number, entryId: number) =>
     call<KpiDetail>('DELETE', `/api/kpis/${id}/entries/${entryId}`),
+  sustainment: () => call<Sustainment[]>('GET', '/api/sustainment'),
+  saveSustainment: (id: number, i: SustainmentInput) => call<KpiDetail>('PUT', `/api/kpis/${id}/sustainment`, i),
+  deleteSustainment: (id: number) => call<KpiDetail>('DELETE', `/api/kpis/${id}/sustainment`),
   departments: () => call<Department[]>('GET', '/api/departments'),
   saveDepartment: (id: number | null, d: { name: string; description?: string }) =>
     id ? call<Department>('PUT', `/api/departments/${id}`, d) : call<Department>('POST', '/api/departments', d),

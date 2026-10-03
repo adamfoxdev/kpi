@@ -25,10 +25,24 @@ Tests: `cd backend && dotnet test`. Set `SeedDemoData=false` (env var) to start 
 - **Overdue** flags a KPI whose last reading is older than two reporting periods.
 - Overall attainment averages active KPIs, capping each at 150% so one outlier can't hide failures.
 
+## Sustainment tracking
+
+Any KPI can have a sustainment plan (go-live date, pre-improvement baseline, monitoring window of 1-36 months, owner, control-plan notes). Only readings on/after go-live are judged, using the KPI's normal status rules:
+
+| State | Meaning |
+|---|---|
+| Pending | No readings since go-live yet |
+| Monitoring | Latest reading on target, but the window hasn't finished cleanly |
+| Sustained | Window elapsed with no off-track reading in it, and the latest reading is on target |
+| Slipping | Latest reading is in the at-risk band |
+| Relapsed | Latest reading is off track (also applies after the window ends) |
+
+Also shown: on-target streak, readings on target since go-live, and *gain retained* = (latest − baseline) ÷ (target − baseline). The Sustainment page lists all plans worst-first; the scorecard has a "gains slipping / lost" tile. Databases created before this feature are upgraded automatically on startup.
+
 ## Features
 
 Scorecard dashboard (summary tiles, department health, filterable KPI cards with sparklines, worst-first), KPI detail with history-vs-target chart and reading entry, KPI create/edit/delete, department management.
 
 ## API
 
-`GET /api/dashboard` · `GET|POST /api/kpis` · `GET|PUT|DELETE /api/kpis/{id}` · `POST /api/kpis/{id}/entries` · `DELETE /api/kpis/{id}/entries/{entryId}` · `GET|POST /api/departments` · `PUT|DELETE /api/departments/{id}`
+`GET /api/dashboard` · `GET|POST /api/kpis` · `GET|PUT|DELETE /api/kpis/{id}` · `POST /api/kpis/{id}/entries` · `DELETE /api/kpis/{id}/entries/{entryId}` · `GET /api/sustainment` · `PUT|DELETE /api/kpis/{id}/sustainment` · `GET|POST /api/departments` · `PUT|DELETE /api/departments/{id}`

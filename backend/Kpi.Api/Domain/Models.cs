@@ -3,6 +3,7 @@ namespace Kpi.Api.Domain;
 public enum Direction { HigherIsBetter, LowerIsBetter }
 public enum Frequency { Daily, Weekly, Monthly, Quarterly }
 public enum KpiStatus { OnTrack, AtRisk, OffTrack, NoData }
+public enum SustainmentState { Pending, Monitoring, Sustained, Slipping, Relapsed }
 
 public class Department
 {
@@ -28,6 +29,7 @@ public class Kpi
     public int DepartmentId { get; set; }
     public Department? Department { get; set; }
     public List<KpiEntry> Entries { get; set; } = new();
+    public SustainmentPlan? Sustainment { get; set; }
 }
 
 public class KpiEntry
@@ -37,4 +39,17 @@ public class KpiEntry
     public DateOnly Date { get; set; }
     public decimal Value { get; set; }
     public string? Note { get; set; }
+}
+
+/// <summary>Post-improvement control plan: after go-live, does the KPI hold its target?</summary>
+public class SustainmentPlan
+{
+    public int Id { get; set; }
+    public int KpiId { get; set; }
+    public DateOnly GoLiveDate { get; set; }
+    /// <summary>Level before the improvement; used to measure how much of the gain is retained.</summary>
+    public decimal BaselineValue { get; set; }
+    public int MonitoringMonths { get; set; } = 6;
+    public string? Owner { get; set; }
+    public string? ControlPlan { get; set; }
 }
