@@ -19,6 +19,11 @@ export interface Sustainment {
   readingsSince: number; onTarget: number; streak: number; gainRetained?: number
   daysRemaining: number; percentElapsed: number; isStale: boolean
 }
+export interface Alert {
+  id: number; kpiId: number; kpiName: string; departmentName: string; owner?: string
+  state: SustainmentState; previousState?: SustainmentState | null; message: string
+  createdAt: string; acknowledgedAt?: string | null; resolvedAt?: string | null
+}
 export interface SustainmentInput {
   goLiveDate: string; baselineValue: number; monitoringMonths: number; owner?: string; controlPlan?: string
 }
@@ -68,6 +73,9 @@ export const api = {
   sustainment: () => call<Sustainment[]>('GET', '/api/sustainment'),
   saveSustainment: (id: number, i: SustainmentInput) => call<KpiDetail>('PUT', `/api/kpis/${id}/sustainment`, i),
   deleteSustainment: (id: number) => call<KpiDetail>('DELETE', `/api/kpis/${id}/sustainment`),
+  alerts: (all = false) => call<Alert[]>('GET', `/api/alerts${all ? '?status=all' : ''}`),
+  acknowledgeAlert: (id: number) => call<void>('POST', `/api/alerts/${id}/acknowledge`),
+  acknowledgeAll: () => call<{ acknowledged: number }>('POST', '/api/alerts/acknowledge-all'),
   departments: () => call<Department[]>('GET', '/api/departments'),
   saveDepartment: (id: number | null, d: { name: string; description?: string }) =>
     id ? call<Department>('PUT', `/api/departments/${id}`, d) : call<Department>('POST', '/api/departments', d),

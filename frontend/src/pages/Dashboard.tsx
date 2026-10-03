@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type Dashboard as D, type Kpi, type Status } from '../api'
+import { api, type Alert, type Dashboard as D, type Kpi, type Status } from '../api'
 import { ErrorBox, Progress, Spark, StatusBadge } from '../components/Bits'
 import { fmtPct, fmtValue, trendText } from '../format'
 
@@ -10,8 +10,12 @@ export default function Dashboard() {
   const [dept, setDept] = useState(0)
   const [status, setStatus] = useState<Status | ''>('')
   const [q, setQ] = useState('')
+  const [openAlerts, setOpenAlerts] = useState<Alert[]>([])
 
-  useEffect(() => { api.dashboard().then(setData).catch(e => setError(e.message)) }, [])
+  useEffect(() => {
+    api.dashboard().then(setData).catch(e => setError(e.message))
+    api.alerts().then(setOpenAlerts).catch(() => { /* banner is best-effort */ })
+  }, [])
 
   const shown = useMemo(() => (data?.kpis ?? []).filter(k =>
     (!dept || k.departmentId === dept) && (!status || k.status === status) &&
@@ -30,6 +34,12 @@ export default function Dashboard() {
   return (
     <>
       <h1>Scorecard</h1>
+      {openAlerts.length > 0 && (
+        <Link to="/alerts" className={`banner ${openAlerts.some(a => a.state === 'Relapsed') ? 'critical' : ''}`}>
+          <strong>{openAlerts.length} sustainment {openAlerts.length === 1 ? 'alert' : 'alerts'}</strong>
+          {' — '}{openAlerts.filter(a => a.state === 'Relapsed').length} relapsed, {openAlerts.filter(a => a.state === 'Slipping').length} slipping. Review →
+        </Link>
+      )}
       <div className="tiles">
         {tile('Overall attainment', fmtPct(data.overallAttainment), 'overall')}
         {tile('On track', data.onTrack, 's-OnTrack', 'OnTrack')}

@@ -73,3 +73,11 @@ label.check { flex-direction: row; align-items: center; color: var(--text); }
 textarea { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: .4rem .6rem; min-height: 70px; resize: vertical; }
 .progress.thin { height: 6px; min-width: 90px; }
 .pre { white-space: pre-wrap; margin: .4rem 0 0; }
+
+.count { background: var(--c-OffTrack); color: #fff; font-size: .7rem; font-weight: 700; border-radius: 999px; padding: .05rem .45rem; margin-left: .4rem; }
+.banner { display: block; background: var(--bg-AtRisk); color: var(--c-AtRisk); border-radius: 8px; padding: .65rem 1rem; margin-bottom: 1rem; }
+.banner.critical { background: var(--bg-OffTrack); color: var(--c-OffTrack); }
+.alerts { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: .7rem; }
+.alert { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--c-AtRisk); border-radius: 10px; padding: .8rem 1rem; }
+.alert.a-Relapsed { border-left-color: var(--c-OffTrack); } .alert.resolved { opacity: .6; border-left-color: var(--c-OnTrack); }
+.alert-top { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; } .alert-msg { margin: .4rem 0; }

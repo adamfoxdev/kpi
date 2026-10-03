@@ -52,4 +52,19 @@ public class SustainmentPlan
     public int MonitoringMonths { get; set; } = 6;
     public string? Owner { get; set; }
     public string? ControlPlan { get; set; }
+    /// <summary>State at the last alert sync; a change from this is what raises or resolves alerts.</summary>
+    public SustainmentState? LastState { get; set; }
+}
+
+/// <summary>Raised when a sustainment plan enters Slipping or Relapsed. Resolved automatically on recovery.</summary>
+public class Alert
+{
+    public int Id { get; set; }
+    public int KpiId { get; set; }
+    public SustainmentState State { get; set; }
+    public SustainmentState? PreviousState { get; set; }
+    public string Message { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+    public DateTime? AcknowledgedAt { get; set; }
+    public DateTime? ResolvedAt { get; set; }
 }

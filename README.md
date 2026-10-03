@@ -39,10 +39,22 @@ Any KPI can have a sustainment plan (go-live date, pre-improvement baseline, mon
 
 Also shown: on-target streak, readings on target since go-live, and *gain retained* = (latest − baseline) ÷ (target − baseline). The Sustainment page lists all plans worst-first; the scorecard has a "gains slipping / lost" tile. Databases created before this feature are upgraded automatically on startup.
 
+## Alerts
+
+An alert is raised when a sustainment plan **enters** Slipping or Relapsed. Each plan remembers the state it was last seen in, so re-checking never duplicates an alert.
+
+- Slipping → Relapsed raises a new (critical) alert and resolves the slip one.
+- Recovery (or removing the plan, or deactivating the KPI) resolves open alerts automatically; resolved alerts stay in History.
+- Falling into Slipping again later is a new alert.
+- Acknowledging an alert marks it as seen but leaves it open until the KPI actually recovers.
+- Checks run when readings, KPIs or plans change, at startup, and whenever alerts are listed. The UI shows a nav badge (unacknowledged count, refreshed every minute), a scorecard banner and an Alerts page.
+
+Alerts are in-app only; there is no email/chat delivery yet.
+
 ## Features
 
 Scorecard dashboard (summary tiles, department health, filterable KPI cards with sparklines, worst-first), KPI detail with history-vs-target chart and reading entry, KPI create/edit/delete, department management.
 
 ## API
 
-`GET /api/dashboard` · `GET|POST /api/kpis` · `GET|PUT|DELETE /api/kpis/{id}` · `POST /api/kpis/{id}/entries` · `DELETE /api/kpis/{id}/entries/{entryId}` · `GET /api/sustainment` · `PUT|DELETE /api/kpis/{id}/sustainment` · `GET|POST /api/departments` · `PUT|DELETE /api/departments/{id}`
+`GET /api/dashboard` · `GET|POST /api/kpis` · `GET|PUT|DELETE /api/kpis/{id}` · `POST /api/kpis/{id}/entries` · `DELETE /api/kpis/{id}/entries/{entryId}` · `GET /api/sustainment` · `PUT|DELETE /api/kpis/{id}/sustainment` · `GET /api/alerts[?status=all]` · `POST /api/alerts/{id}/acknowledge` · `POST /api/alerts/acknowledge-all` · `GET|POST /api/departments` · `PUT|DELETE /api/departments/{id}`

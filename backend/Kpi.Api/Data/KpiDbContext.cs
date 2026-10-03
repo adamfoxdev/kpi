@@ -8,6 +8,7 @@ public class KpiDbContext(DbContextOptions<KpiDbContext> options) : DbContext(op
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Domain.Kpi> Kpis => Set<Domain.Kpi>();
     public DbSet<KpiEntry> Entries => Set<KpiEntry>();
+    public DbSet<Alert> Alerts => Set<Alert>();
     public DbSet<SustainmentPlan> SustainmentPlans => Set<SustainmentPlan>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -27,5 +28,10 @@ public class KpiDbContext(DbContextOptions<KpiDbContext> options) : DbContext(op
         b.Entity<SustainmentPlan>().HasIndex(p => p.KpiId).IsUnique();
         b.Entity<Domain.Kpi>().HasOne(k => k.Sustainment).WithOne().HasForeignKey<SustainmentPlan>(p => p.KpiId)
             .OnDelete(DeleteBehavior.Cascade);
+        b.Entity<SustainmentPlan>().Property(p => p.LastState).HasConversion<string>();
+        b.Entity<Alert>().Property(a => a.State).HasConversion<string>();
+        b.Entity<Alert>().Property(a => a.PreviousState).HasConversion<string>();
+        b.Entity<Alert>().HasIndex(a => new { a.KpiId, a.ResolvedAt });
+        b.Entity<Alert>().HasOne<Domain.Kpi>().WithMany().HasForeignKey(a => a.KpiId).OnDelete(DeleteBehavior.Cascade);
     }
 }

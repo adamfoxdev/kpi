@@ -5,6 +5,7 @@ import { api, type KpiDetail as Detail } from '../api'
 import { ErrorBox, Progress, StatusBadge } from '../components/Bits'
 import { KpiForm } from '../components/KpiForm'
 import { SustainmentPanel } from '../components/SustainmentPanel'
+import { notifyAlertsChanged } from '../alertsBus'
 import { fmtPct, fmtValue, today, trendText } from '../format'
 
 export default function KpiDetail() {
@@ -32,7 +33,7 @@ export default function KpiDetail() {
 
   async function add(e: React.FormEvent) {
     e.preventDefault(); setError(null)
-    try { setD(await api.addEntry(id, { date, value: Number(value), note: note || undefined })); setValue(''); setNote('') }
+    try { setD(await api.addEntry(id, { date, value: Number(value), note: note || undefined })); setValue(''); setNote(''); notifyAlertsChanged() }
     catch (err) { setError((err as Error).message) }
   }
   async function del() {
@@ -84,7 +85,7 @@ export default function KpiDetail() {
         )}
       </section>
 
-      <SustainmentPanel kpi={k} plan={plan} onChange={setD} />
+      <SustainmentPanel kpi={k} plan={plan} onChange={d => { setD(d); notifyAlertsChanged() }} />
 
       <section className="panel">
         <h2>Record a reading</h2>
@@ -102,7 +103,7 @@ export default function KpiDetail() {
             {entries.map(e => (
               <tr key={e.id}>
                 <td>{e.date}</td><td className="num">{fmtValue(e.value, k.unit)}</td><td>{e.note}</td>
-                <td className="num"><button className="link danger" onClick={async () => setD(await api.deleteEntry(id, e.id))}>Remove</button></td>
+                <td className="num"><button className="link danger" onClick={async () => { setD(await api.deleteEntry(id, e.id)); notifyAlertsChanged() }}>Remove</button></td>
               </tr>
             ))}
             {entries.length === 0 && <tr><td colSpan={4} className="muted">No readings yet.</td></tr>}
@@ -110,7 +111,7 @@ export default function KpiDetail() {
         </table>
       </section>
 
-      {editing && <KpiForm kpi={k} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); load() }} />}
+      {editing && <KpiForm kpi={k} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); load(); notifyAlertsChanged() }} />}
     </>
   )
 }

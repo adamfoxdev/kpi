@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 var conn = builder.Configuration.GetConnectionString("Kpi") ?? "Data Source=kpi.db";
 builder.Services.AddDbContext<KpiDbContext>(o => o.UseSqlite(conn));
 builder.Services.AddScoped<KpiQueries>();
+builder.Services.AddScoped<AlertService>();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173").AllowAnyHeader().AllowAnyMethod()));
@@ -19,16 +20,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<KpiDbContext>();
     db.Database.EnsureCreated();
-    // EnsureCreated won't add tables to a database made by an earlier version; keep existing local DBs working.
-    db.Database.ExecuteSqlRaw("""
-        CREATE TABLE IF NOT EXISTS "SustainmentPlans" (
-            "Id" INTEGER NOT NULL CONSTRAINT "PK_SustainmentPlans" PRIMARY KEY AUTOINCREMENT,
-            "KpiId" INTEGER NOT NULL, "GoLiveDate" TEXT NOT NULL, "BaselineValue" TEXT NOT NULL,
-            "MonitoringMonths" INTEGER NOT NULL, "Owner" TEXT NULL, "ControlPlan" TEXT NULL,
-            CONSTRAINT "FK_SustainmentPlans_Kpis_KpiId" FOREIGN KEY ("KpiId") REFERENCES "Kpis" ("Id") ON DELETE CASCADE);
-        CREATE UNIQUE INDEX IF NOT EXISTS "IX_SustainmentPlans_KpiId" ON "SustainmentPlans" ("KpiId");
-        """);
+    SchemaUpgrade.Apply(db);
     if (app.Configuration.GetValue("SeedDemoData", true)) Seeder.Seed(db);
+    await scope.ServiceProvider.GetRequiredService<AlertService>().SyncAsync();
 }
 
 app.UseCors();
@@ -102,13 +96,15 @@ api.MapPost("/kpis", async (KpiInput i, KpiDbContext db, KpiQueries q) =>
     return Results.Created($"/api/kpis/{k.Id}", await q.DetailAsync(k.Id));
 });
 
-api.MapPut("/kpis/{id:int}", async (int id, KpiInput i, KpiDbContext db, KpiQueries q) =>
+
+api.MapPut("/kpis/{id:int}", async (int id, KpiInput i, KpiDbContext db, KpiQueries q, AlertService alerts) =>
 {
     var k = await db.Kpis.FindAsync(id);
     if (k is null) return Results.NotFound();
     if (Check(i) is { } err) return Invalid(err);
     if (!await db.Departments.AnyAsync(d => d.Id == i.DepartmentId)) return Invalid("Unknown department.");
     Apply(k, i); await db.SaveChangesAsync();
+    await alerts.SyncAsync();
     return Results.Ok(await q.DetailAsync(id));
 });
 
@@ -121,28 +117,30 @@ api.MapDelete("/kpis/{id:int}", async (int id, KpiDbContext db) =>
 });
 
 // ---- Entries (one reading per KPI per date; posting an existing date updates it)
-api.MapPost("/kpis/{id:int}/entries", async (int id, EntryInput i, KpiDbContext db, KpiQueries q) =>
+api.MapPost("/kpis/{id:int}/entries", async (int id, EntryInput i, KpiDbContext db, KpiQueries q, AlertService alerts) =>
 {
     if (!await db.Kpis.AnyAsync(k => k.Id == id)) return Results.NotFound();
     var e = await db.Entries.FirstOrDefaultAsync(x => x.KpiId == id && x.Date == i.Date);
     if (e is null) db.Entries.Add(new KpiEntry { KpiId = id, Date = i.Date, Value = i.Value, Note = i.Note });
     else { e.Value = i.Value; e.Note = i.Note; }
     await db.SaveChangesAsync();
+    await alerts.SyncAsync();
     return Results.Ok(await q.DetailAsync(id));
 });
 
-api.MapDelete("/kpis/{id:int}/entries/{entryId:int}", async (int id, int entryId, KpiDbContext db, KpiQueries q) =>
+api.MapDelete("/kpis/{id:int}/entries/{entryId:int}", async (int id, int entryId, KpiDbContext db, KpiQueries q, AlertService alerts) =>
 {
     var e = await db.Entries.FirstOrDefaultAsync(x => x.Id == entryId && x.KpiId == id);
     if (e is null) return Results.NotFound();
     db.Entries.Remove(e); await db.SaveChangesAsync();
+    await alerts.SyncAsync();
     return Results.Ok(await q.DetailAsync(id));
 });
 
 // ---- Sustainment (one control plan per KPI)
 api.MapGet("/sustainment", (KpiQueries q, CancellationToken ct) => q.SustainmentAsync(ct));
 
-api.MapPut("/kpis/{id:int}/sustainment", async (int id, SustainmentInput i, KpiDbContext db, KpiQueries q) =>
+api.MapPut("/kpis/{id:int}/sustainment", async (int id, SustainmentInput i, KpiDbContext db, KpiQueries q, AlertService alerts) =>
 {
     if (!await db.Kpis.AnyAsync(k => k.Id == id)) return Results.NotFound();
     if (i.MonitoringMonths is < 1 or > 36) return Invalid("Monitoring period must be 1-36 months.");
@@ -151,15 +149,30 @@ api.MapPut("/kpis/{id:int}/sustainment", async (int id, SustainmentInput i, KpiD
     p.GoLiveDate = i.GoLiveDate; p.BaselineValue = i.BaselineValue; p.MonitoringMonths = i.MonitoringMonths;
     p.Owner = i.Owner; p.ControlPlan = i.ControlPlan;
     await db.SaveChangesAsync();
+    await alerts.SyncAsync();
     return Results.Ok(await q.DetailAsync(id));
 });
 
-api.MapDelete("/kpis/{id:int}/sustainment", async (int id, KpiDbContext db, KpiQueries q) =>
+api.MapDelete("/kpis/{id:int}/sustainment", async (int id, KpiDbContext db, KpiQueries q, AlertService alerts) =>
 {
     var p = await db.SustainmentPlans.FirstOrDefaultAsync(x => x.KpiId == id);
     if (p is null) return Results.NotFound();
     db.SustainmentPlans.Remove(p); await db.SaveChangesAsync();
+    await alerts.SyncAsync(); // resolves any open alerts for the removed plan
     return Results.Ok(await q.DetailAsync(id));
 });
+
+// ---- Alerts
+api.MapGet("/alerts", async (string? status, AlertService alerts, CancellationToken ct) =>
+{
+    await alerts.SyncAsync(ct: ct); // picks up changes that happened without a write (e.g. a new day)
+    return await alerts.ListAsync(openOnly: status != "all", ct);
+});
+
+api.MapPost("/alerts/{id:int}/acknowledge", async (int id, AlertService alerts) =>
+    await alerts.AcknowledgeAsync(id) > 0 ? Results.NoContent() : Results.NotFound());
+
+api.MapPost("/alerts/acknowledge-all", async (AlertService alerts) =>
+    Results.Ok(new { acknowledged = await alerts.AcknowledgeAsync(null) }));
 
 app.Run();
